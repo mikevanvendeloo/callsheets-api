@@ -1,0 +1,18 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Verify callsheet endpoint should return the list of callsheets that were uploaded 1`] = `
+[
+  {
+    "fileName": "17-11-2023__KL__Fortuna-Delta Logistiek - PKC-Vertom.json",
+    "league": "KL",
+    "matchDate": "17-11-2023",
+    "matchTitle": "Fortuna-Delta Logistiek - PKC-Vertom",
+  },
+  {
+    "fileName": "17-11-2023__resKL__Fortuna-Delta Logistiek - Blauw-Wit.json",
+    "league": "resKL",
+    "matchDate": "17-11-2023",
+    "matchTitle": "Fortuna-Delta Logistiek - Blauw-Wit",
+  },
+]
+`;
