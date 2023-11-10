@@ -1,10 +1,9 @@
 import multer from 'multer'
+import { uploadDirectory } from '..'
 
 const upload = multer({
   storage: multer.diskStorage({
-    destination: function (req, file, cb) {
-      cb(null, './uploads/')
-    },
+    destination: uploadDirectory,
     filename: function (req, file, cb) {
       cb(null, file.originalname)
     },

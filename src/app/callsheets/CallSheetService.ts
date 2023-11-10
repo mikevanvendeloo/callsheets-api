@@ -3,6 +3,12 @@ import { DateTime, Settings } from 'luxon'
 import dotenv from 'dotenv'
 import * as path from 'path'
 import fs from 'fs'
+import {
+  type CallSheet,
+  type Schedule,
+  type ScheduleItem,
+  type MatchInfo,
+} from '../types'
 
 dotenv.config()
 Settings.defaultZone = 'Europe/Amsterdam'
@@ -12,15 +18,17 @@ export const readCallSheet = async (fileName: string): Promise<CallSheet[]> => {
   const content = await workbook.xlsx.readFile(path.resolve(fileName))
   const sheets: CallSheet[] = []
 
-  content.worksheets.forEach(sheet =>
-    callSheetParser(sheet).then(sheet => {
-      if (sheet) {
+  content.worksheets.forEach(async callsheet => {
+    callSheetParser(callsheet).then(sheet => {
+      if (sheet != null) {
         sheets.push(sheet)
         fs.writeFile(
           path.join(
             __dirname,
-            '../../data/',
+            '../../data/callsheets/',
             sheet.matchInfo.date +
+              '__' +
+              sheet.matchInfo.startTime +
               '__' +
               sheet.matchInfo.league +
               '__' +
@@ -32,40 +40,16 @@ export const readCallSheet = async (fileName: string): Promise<CallSheet[]> => {
           ),
           JSON.stringify(sheet),
           err => {
-            if (err) {
+            if (err != null) {
               console.log('Error writing JSON result file for sheet', err)
             }
           },
         )
       }
-    }),
-  )
+    })
+  })
+
   return sheets
-}
-
-type MatchInfo = {
-  league: string
-  title: string | undefined
-  date: string | undefined
-  startTime: string | undefined
-}
-
-type CallSheet = {
-  matchInfo: MatchInfo
-  schedule: Schedule
-}
-
-type Schedule = {
-  activeItem: number | null
-  items: ScheduleItem[]
-}
-
-type ScheduleItem = {
-  id: number
-  title: string
-  timeStart: string
-  timeEnd: string
-  durationInMinutes: number
 }
 
 function getTimeValue(
@@ -78,8 +62,6 @@ function getTimeValue(
   const today = DateTime.now()
   const cellDateTime = value as Date
   const dateObj = new Date(cellDateTime)
-
-  //  cellDateTime = new Date(Date.UTC(today.year, today.month - 1, today.day, cellDateTime.getUTCHours()), cellDateTime.getMinutes())
   const cellDateTime2 = DateTime.utc(
     today.year,
     today.month,
@@ -87,10 +69,6 @@ function getTimeValue(
     dateObj.getUTCHours(),
     dateObj.getUTCMinutes(),
   )
-  //let dateObject = { hours: cellDateTime.getHours, minutes:cellDateTime.getMinutes, offset: cellDateTime.getTimezoneOffset}
-  //DateTime.fromObject(Date.now(), {zone: 'Europe/London'}).set({ hours: cellDateTime.getHours, minutes: cellDateTime.getMinutes})
-  //console.log("Cell datetime: " + cellDateTime.toLocaleTimeString(["nl-NL"], { timeZone: 'Europe/Amsterdam', hour: '2-digit', minute:'2-digit'}))
-  // return DateTime.fromISO(cellDateTime.toISOString())
 
   return cellDateTime2
 }
@@ -99,16 +77,17 @@ function getTimeValue(
 const getCellFormulaValue = (row: Excel.Row, cellIndex: number) => {
   const value = row.getCell(cellIndex).value as Excel.CellFormulaValue
 
-  return value.result ? value.result.toString() : ''
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  return value.result != null ? value.result.toString() : ''
 }
 
 const readSchedule = (rows: Excel.Row[] | undefined): Schedule => {
-  if (rows === undefined) return { activeItem: null, items: [] }
+  if (rows === undefined) return { items: [] }
 
   const filtered = rows.filter(value => !value.getCell(1).isMerged)
 
   const scheduleItems: ScheduleItem[] = []
-  filtered.map((row, index) => {
+  filtered.forEach((row, index) => {
     if (row.hasValues) {
       const item = {
         id: index + 1,
@@ -124,11 +103,10 @@ const readSchedule = (rows: Excel.Row[] | undefined): Schedule => {
       scheduleItems.push(item)
     } else {
       console.log('Skipping row index: ' + index)
-      return null
     }
   })
 
-  return { activeItem: null, items: scheduleItems }
+  return { items: scheduleItems }
 }
 
 const getCellDateValue = (cell: Excel.Cell): Date => {
@@ -138,7 +116,7 @@ const getCellDateValue = (cell: Excel.Cell): Date => {
 const callSheetParser = async (
   sheet: Excel.Worksheet,
 ): Promise<CallSheet | undefined> => {
-  if (sheet == null || sheet == undefined) return undefined
+  if (sheet == null || sheet === undefined) return undefined
   const matchDate = sheet.getRow(1).getCell(1)
   const matchTimeCell = sheet.getRow(3).getCell(1)
 
@@ -146,7 +124,7 @@ const callSheetParser = async (
 
   const matchInfo: MatchInfo = {
     league: sheet.name,
-    title: sheet.getRow(1).getCell(4).value?.toString(),
+    title: sheet.getRow(1).getCell(4).value?.toString() ?? '??????',
     date: DateTime.fromJSDate(matchDate.value as Date).toFormat('dd-MM-yyyy'),
     startTime: matchTimeValue.toFormat('HH:mm'),
   }
@@ -158,8 +136,8 @@ const callSheetParser = async (
   const schedule = readSchedule(rows)
 
   const callsheet: CallSheet = {
-    matchInfo: matchInfo,
-    schedule: schedule,
+    matchInfo,
+    schedule,
   }
 
   return callsheet

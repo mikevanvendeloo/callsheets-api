@@ -1,4 +1,7 @@
 import winston from 'winston'
+import path from 'path'
+
+const logDir = path.join(__dirname, '../../data/logs')
 
 const levels = {
   error: 0,
@@ -8,8 +11,8 @@ const levels = {
   debug: 4,
 }
 
-const level = () => {
-  const env = process.env.NODE_ENV || 'development'
+const level = (): string => {
+  const env = process.env.NODE_ENV ?? 'development'
   const isDevelopment = env === 'development'
   return isDevelopment ? 'debug' : 'warn'
 }
@@ -33,13 +36,16 @@ const format = winston.format.combine(
 )
 
 const transports = [
-  new winston.transports.Console(),
+  // new winston.transports.Console(),
   new winston.transports.File({
-    filename: 'logs/error.log',
+    dirname: logDir,
+    filename: 'error.log',
     level: 'error',
   }),
-  new winston.transports.File({ filename: 'logs/all.log' }),
+  new winston.transports.File({ dirname: logDir, filename: 'all.log' }),
 ]
+
+console.log('Logging directory in logger: ' + logDir)
 
 const Logger = winston.createLogger({
   level: level(),

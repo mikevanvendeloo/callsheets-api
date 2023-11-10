@@ -9,13 +9,12 @@ class CallSheetRoutes {
     this.intializeRoutes()
   }
 
-  intializeRoutes() {
+  intializeRoutes(): void {
     // Uploada new CallSheet
     this.router.post('/', upload.single('file'), this.controller.upload)
 
     // Retrieve all CallSheets
-    this.router.get('/', this.controller.list)
-
+    this.router.get('/', this.controller.reindex)
     // Retrieve a single CallSheet with id
     this.router.get('/:fileName', this.controller.callsheet)
 

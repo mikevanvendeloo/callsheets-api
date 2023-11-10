@@ -9,10 +9,9 @@ class LiveRoutes {
     this.intializeRoutes()
   }
 
-  intializeRoutes() {
+  intializeRoutes(): void {
     this.router.post('/', this.controller.activate)
     this.router.get('/', this.controller.retrieve)
-    this.router.get('/activate', this.controller.setActiveItem)
     this.router.get('/timer', this.controller.timer)
     this.router.get('/vmix', this.controller.vmix)
     this.router.post('/item', this.controller.setActiveItem)
