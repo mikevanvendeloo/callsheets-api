@@ -1,6 +1,15 @@
 {
-  "watch": ["src", ".env"],
+  "watch": [
+    "src",
+    ".env"
+  ],
   "ext": "js,ts,json",
-  "ignore": ["logs/*", "src/**/*.{spec,test}.ts"],
-  "exec": "ts-node --transpile-only src/index.ts"
+  "ignore": [
+    "logs/*",
+    "data/*",
+    "uploads/*",
+    "src/data/*",
+    "src/**/*.{spec,test}.ts"
+  ],
+  "exec": "ts-node --transpile-only src/server.ts"
 }
