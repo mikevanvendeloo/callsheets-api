@@ -33,6 +33,44 @@ class LiveController {
     }
   }
 
+  next = async (req: Request, res: Response): Promise<void> => {
+    this.liveService
+      .nextItem()
+      .then(_ => {
+        this.vmix(req, res).catch(error => {
+          console.log(error)
+          res.status(500).json({
+            message: error,
+          })
+        })
+      })
+      .catch(error => {
+        console.log(error)
+        res.status(500).json({
+          message: error,
+        })
+      })
+  }
+
+  previous = async (req: Request, res: Response): Promise<void> => {
+    this.liveService
+      .previousItem()
+      .then(_ => {
+        this.vmix(req, res).catch(error => {
+          console.log(error)
+          res.status(500).json({
+            message: error,
+          })
+        })
+      })
+      .catch(error => {
+        console.log(error)
+        res.status(500).json({
+          message: error,
+        })
+      })
+  }
+
   setActiveItem = async (req: Request, res: Response): Promise<void> => {
     const activateItemRequest = req.body
     this.liveService
@@ -55,7 +93,7 @@ class LiveController {
   timer = async (req: Request, res: Response): Promise<void> => {
     try {
       this.liveService
-        .getActiveTimer()
+        .getActiveTimer(0)
         .then(contents => {
           res.status(200).json(contents)
         })
@@ -76,7 +114,7 @@ class LiveController {
   vmix = async (req: Request, res: Response): Promise<void> => {
     try {
       this.liveService
-        .getActiveTimer()
+        .getActiveTimer(0)
         .then(activeTimer => {
           if (activeTimer == null) {
             res.status(400).json({ message: 'No active callsheet found' })
@@ -114,6 +152,20 @@ class LiveController {
     try {
       this.liveService
         .readActiveCallSheet()
+        .then(contents => res.status(200).json(contents))
+        .catch(error => res.status(500).json({ message: error }))
+    } catch (err) {
+      logger.error(err)
+      res.status(500).json({
+        message: 'Internal Server Error!',
+      })
+    }
+  }
+
+  functions = async (req: Request, res: Response): Promise<void> => {
+    try {
+      this.liveService
+        .readActiveFunctions()
         .then(contents => res.status(200).json(contents))
         .catch(error => res.status(500).json({ message: error }))
     } catch (err) {

@@ -1,8 +1,17 @@
 export type ActiveCallSheetTimer = {
   matchStartTime: string
-  activeItem: CallSheetItem
-  nextItem?: CallSheetItem
+  activeItem?: CallSheetItem | null
+  nextItem?: CallSheetItem | null
   itemTimer: ItemTimer
+}
+
+export type VMixLiveStreamTimer = {
+  matchStartTime?: string | null
+  timerValue: string
+  timerColor?: string | null
+  timerStart?: string | null
+  timerEnd?: string | null
+  timerText: string | '-'
 }
 
 export type ItemTimer = {
@@ -30,6 +39,8 @@ export type MatchInfo = {
   title: string
   date: string
   startTime: string
+  homeClub: string
+  awayClub: string
 }
 
 export type Schedule = {
@@ -42,6 +53,9 @@ export type ScheduleItem = {
   durationInMinutes: number
   timeEnd: string
   title: string
+  description?: string | null
+  vMixId?: string | null
+  vMixTitle?: string | null
 }
 
 export type ActiveCallSheet = {
@@ -58,4 +72,22 @@ export type CallSheetInfo = {
   league: string
   matchTitle: string
   fileName: string
+}
+
+export type TimerRequest = {
+  durationInSeconds: number
+  timerDescription: string
+  callSheetIdentifier?: string | null
+  startTimeStamp: string
+}
+
+export type Role = {
+  code: string
+  displayName: string
+  personName: string
+}
+
+export type StreamFunction = {
+  FUNCTION: string
+  NAME: string
 }

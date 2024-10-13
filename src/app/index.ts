@@ -23,6 +23,7 @@ export default class Server {
       origin: '*',
       methods: ['GET', 'POST', 'DELETE'],
       exposedHeaders: [
+        'Access-Control-Allow-Headers',
         'Content-Length',
         'origin',
         'X-Requested-With',

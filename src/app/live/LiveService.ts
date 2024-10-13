@@ -4,12 +4,14 @@ import fs from 'fs'
 import logger from '../logging/logger'
 import { DateTime, Duration } from 'luxon'
 import {
+  type StreamFunction,
   type ActiveCallSheet,
   type ActiveCallSheetTimer,
   type CallSheet,
 } from '../types'
 
 const activeCallSheetFileName = 'activeCallSheet.json'
+const activeFunctionsFileName = 'activeFunctions.json'
 
 class LiveService {
   readCallSheet = async (callSheetFileName: string): Promise<CallSheet> => {
@@ -29,6 +31,17 @@ class LiveService {
       return JSON.parse(fs.readFileSync(sheetFile, 'utf-8'))
     } else {
       return null
+    }
+  }
+
+  readActiveFunctions = async (): Promise<StreamFunction[] | []> => {
+    if (dataDirectory == null) throw Error('No directory found')
+
+    const sheetFile = path.join(dataDirectory, activeFunctionsFileName)
+    if (fs.existsSync(sheetFile)) {
+      return JSON.parse(fs.readFileSync(sheetFile, 'utf-8'))
+    } else {
+      return []
     }
   }
 
@@ -53,10 +66,11 @@ class LiveService {
           year: matchDate.year,
         })
 
-        const durationInMilliseconds =
-          callSheetStartTime.diffNow('milliseconds')
+        const durationInMilliseconds = Math.abs(
+          callSheetStartTime.diffNow('milliseconds').milliseconds,
+        )
         const deadline = DateTime.now().plus({
-          milliseconds: durationInMilliseconds.milliseconds,
+          milliseconds: durationInMilliseconds,
         })
         const activeCallSheet = {
           activeCallSheetFile: callSheetFileName,
@@ -73,6 +87,25 @@ class LiveService {
         )
         fs.writeFileSync(activeSheetFile, JSON.stringify(activeCallSheet))
         console.log("Activated callsheet '" + callSheetFileName + "'")
+
+        const activeFunctionsFile = path.join(
+          dataDirectory,
+          activeFunctionsFileName,
+        )
+        fs.copyFile(
+          path.join(
+            dataDirectory,
+            callSheetFileName.replace('.json', '-functions.json'),
+          ),
+          activeFunctionsFile,
+          fs.constants.COPYFILE_FICLONE,
+          err => {
+            if (err != null) {
+              console.log('Error Found:', err)
+            }
+          },
+        )
+
         return activeCallSheet
       })
       .catch(err => {
@@ -86,43 +119,95 @@ class LiveService {
       })
   }
 
+  nextItem = async (): Promise<void> => {
+    this.readActiveCallSheet()
+      .then(contents => {
+        if (contents?.callSheet == null) return
+        this.updateActiveCallSheet(
+          contents.activeItem + 1,
+          DateTime.now().toISO() ?? '',
+        ).catch(err => {
+          logger.error('Error going to next callsheet item' + err)
+          throw err
+        })
+      })
+      .catch(err => {
+        logger.error('Err going to next callsheet item' + err)
+        throw err
+      })
+  }
+
+  previousItem = async (): Promise<void> => {
+    this.readActiveCallSheet()
+      .then(contents => {
+        if (contents?.callSheet == null) return
+
+        this.updateActiveCallSheet(
+          contents.activeItem - 1,
+          DateTime.now().toISO() ?? '',
+        ).catch(err => {
+          logger.error('Error going to next callsheet item' + err)
+          throw err
+        })
+      })
+      .catch(err => {
+        logger.error('Err going to next callsheet item' + err)
+        throw err
+      })
+  }
+
   updateActiveCallSheet = async (
     currentScheduleItem: number,
     itemActivatedTimestamp: string,
   ): Promise<void> => {
     this.readActiveCallSheet()
       .then(contents => {
-        if (contents == null) return
+        if (contents?.callSheet == null) return
         if (currentScheduleItem > contents.callSheet.schedule.items.length) {
           logger.error('No more scheduled items left!')
           return
         }
-        const currentIndex = currentScheduleItem - 1
+        const currentIndex =
+          currentScheduleItem > 1 ? currentScheduleItem - 1 : 1
         const matchDate = DateTime.fromFormat(
           contents.callSheet.matchInfo.date,
           'dd-MM-yyyy',
           { locale: 'nl-NL' },
         )
-        let callSheetItemStartTime = DateTime.fromISO(
-          contents.callSheet?.schedule.items[
-            currentScheduleItem > 0 &&
-            currentIndex < contents.callSheet.schedule.items.length
-              ? currentIndex
-              : 0
-          ].timeStart,
+        let callSheetItemStartTime =
+          currentIndex > 0
+            ? DateTime.now()
+            : DateTime.fromISO(
+                contents.callSheet.schedule.items[0].timeStart ??
+                  contents.callSheet.matchInfo.startTime,
+              )
+        console.log(currentIndex)
+        console.log(
+          currentIndex +
+            1 +
+            ':' +
+            `${contents.callSheet.schedule.items[currentIndex].title}`,
         )
+
         callSheetItemStartTime = callSheetItemStartTime.set({
           day: matchDate.day,
           month: matchDate.month,
           year: matchDate.year,
         })
+        callSheetItemStartTime = DateTime.fromISO(itemActivatedTimestamp)
 
         const durationInMilliseconds =
-          callSheetItemStartTime.diffNow('milliseconds')
-        const deadline = DateTime.now().plus({
-          milliseconds: durationInMilliseconds.milliseconds,
+          currentIndex > 0
+            ? contents.callSheet.schedule.items[currentIndex]
+                .durationInMinutes *
+              60 *
+              1000
+            : callSheetItemStartTime.diffNow('milliseconds').milliseconds
+
+        const deadline = callSheetItemStartTime.plus({
+          milliseconds: durationInMilliseconds,
         })
-        contents.activeItem = currentScheduleItem
+        contents.activeItem = currentScheduleItem >= 0 ? currentScheduleItem : 0
         contents.itemStartedTimestamp = itemActivatedTimestamp
         contents.itemDeadlineTimestamp = deadline.toISO()
         const activeSheetFile = path.join(
@@ -150,13 +235,28 @@ class LiveService {
       })
   }
 
-  getActiveTimer = async (): Promise<ActiveCallSheetTimer | null> => {
+  getActiveTimer = async (
+    delta: number | 0,
+  ): Promise<ActiveCallSheetTimer | null> => {
     return await this.readActiveCallSheet()
       .then(contents => {
         if (contents == null) return null
-        const itemNumber = contents.activeItem - 1
-        const activeItem = contents.callSheet?.schedule.items[itemNumber]
-        const nextItem = contents.callSheet?.schedule.items[itemNumber + 1]
+        const maxIndex =
+          contents.callSheet?.schedule != null
+            ? contents.callSheet?.schedule.items.length - 1
+            : 0
+        const itemNumber =
+          contents.activeItem - 1 + delta <= maxIndex
+            ? contents.activeItem - 1 + delta
+            : maxIndex
+        const activeItem =
+          itemNumber >= 0
+            ? contents.callSheet?.schedule.items[itemNumber]
+            : null
+        const nextItem =
+          itemNumber < maxIndex
+            ? contents.callSheet?.schedule.items[itemNumber + 1]
+            : null
 
         const matchDate = DateTime.fromFormat(
           contents.callSheet.matchInfo.date,
@@ -186,9 +286,13 @@ class LiveService {
             : DateTime.fromISO(contents.itemStartedTimestamp, {
                 locale: 'nl-NL',
               })
-
+        const minutesToCallSheetStart = DateTime.fromISO(
+          contents.callSheet.schedule.items[0].timeStart,
+        ).diffNow('minutes').minutes
         const durationInMilliseconds = Duration.fromMillis(
-          activeItem.durationInMinutes * 60 * 1000,
+          activeItem != null && itemNumber > 0
+            ? activeItem?.durationInMinutes * 60 * 1000
+            : minutesToCallSheetStart * 60 * 1000,
         )
         const deadline = itemStartTimestamp.plus({
           milliseconds: durationInMilliseconds.milliseconds,

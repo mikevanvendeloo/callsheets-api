@@ -1,7 +1,7 @@
-import { Request, Response } from 'express'
+import { type Request, type Response } from 'express'
 
 export default class HealthController {
-  async health(req: Request, res: Response) {
+  async health(req: Request, res: Response): Promise<void> {
     try {
       res.status(200).json({ status: 'OK' })
     } catch (err) {
